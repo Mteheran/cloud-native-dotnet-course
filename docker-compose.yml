@@ -1,0 +1,88 @@
+
+services:
+  conferenceattendees.api:
+    image: ${DOCKER_REGISTRY-}conferenceattendeesapi
+    build:
+      context: .
+      dockerfile: ConferenceAttendees.Api/Dockerfile
+    ports:
+      - "5000:8080"      
+    environment:
+      - DOTNET_RUNNING_IN_CONTAINER=true
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__ConferenceAttendeeDatabaseConnection=Host=postgres;Port=5432;Database=ConferenceAttendeeDb;Username=postgres;Password=12345
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq_logs:5341
+    depends_on:
+      - postgres
+      - seq_logs
+    networks:
+      - app-network
+  conferenceattendees.mvc:
+    image: ${DOCKER_REGISTRY-}conferenceattendeesmvc
+    build:
+      context: .
+      dockerfile: ConferenceAttendees.MVC/Dockerfile
+    ports:
+      - "7230:8080"
+    environment:
+      - DOTNET_RUNNING_IN_CONTAINER=true
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+      - BaseApiUrl=http://conferenceattendees.api:8080
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq_logs:5341
+    depends_on:
+      - conferenceattendees.api
+      - seq_logs
+    networks:
+      - app-network
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    hostname: postgres
+    environment:
+      - POSTGRES_DB=ConferenceAttendeeDb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=12345
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+  seq_logs:
+    image: datalust/seq:latest
+    container_name: seq_logs
+    hostname: seq_logs
+    restart: unless-stopped
+    ports:
+      - "5341:5341"  # Seq ingestion port
+      - "5342:80"    # Seq web UI port
+    environment:
+      - ACCEPT_EULA=Y
+    networks:
+      - app-network
+  nginx:
+    build:
+      context: . 
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "44391:44391"
+    depends_on:
+      - conferenceattendees.mvc
+    networks:
+      app-network:
+        aliases:
+          - "conferenceattendees.com"
+          - "api.conferenceattendees.com"
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

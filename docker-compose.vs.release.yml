@@ -1,0 +1,13 @@
+version: '3.4'
+
+services:
+  conferenceattendees.api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    # Removed Windows-specific volume mounts for macOS/Podman compatibility
+    # HTTPS is handled by reverse proxy, not needed in containers
+  conferenceattendees.mvc:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    # Removed Windows-specific volume mounts for macOS/Podman compatibility
+    # HTTPS is handled by reverse proxy, not needed in containers
